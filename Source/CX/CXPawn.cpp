@@ -2,6 +2,14 @@
 
 #include "CXPawn.h"
 #include "CXPlayerState.h"
+#include "Components/ArrowComponent.h"
+#include "Engine/World.h"
+#include "Engine/DamageEvents.h"
+#include "GameFramework/DamageType.h"
+#include "Kismet/GameplayStatics.h"
+#include "DrawDebugHelpers.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraSystem.h"
 #include "CXWheelFront.h"
 #include "CXWheelRear.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -18,6 +26,14 @@ DEFINE_LOG_CATEGORY(LogTemplateVehicle);
 
 ACXPawn::ACXPawn()
 {
+	bReplicates = true;
+	SetCanBeDamaged(true);
+
+	AttackOrigin = CreateDefaultSubobject<UArrowComponent>(TEXT("AttackOrigin"));
+	AttackOrigin->SetupAttachment(GetMesh());
+	AttackOrigin->SetRelativeLocation(FVector(250.0f, 0.0f, 50.0f));
+	AttackOrigin->SetHiddenInGame(true);
+
 	// construct the front camera boom
 	FrontSpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("Front Spring Arm"));
 	FrontSpringArm->SetupAttachment(GetMesh());
@@ -61,6 +77,15 @@ void ACXPawn::SetupPlayerInputComponent(class UInputComponent* PlayerInputCompon
 
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent))
 	{
+		if (FireAction)
+		{
+			EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Started, this, &ACXPawn::Fire);
+		}
+		else
+		{
+			UE_LOG(LogTemplateVehicle, Warning, TEXT("Assign FireAction in the vehicle Blueprint."));
+		}
+
 		// steering 
 		EnhancedInputComponent->BindAction(SteeringAction, ETriggerEvent::Triggered, this, &ACXPawn::Steering);
 		EnhancedInputComponent->BindAction(SteeringAction, ETriggerEvent::Completed, this, &ACXPawn::Steering);
@@ -237,4 +262,115 @@ void ACXPawn::LimitMaxSpeed()
 	GetMesh()->SetPhysicsLinearVelocity(LimitedVelocity, false);
 }
 
+bool ACXPawn::CanFire() const
+{
+	if (!HasAuthority() || !GetWorld() || !GetController() ||
+		!GetPlayerState<ACXPlayerState>() || !AttackOrigin)
+	{
+		return false;
+	}
+
+	return LastFireTime < 0.0 ||
+		GetWorld()->GetTimeSeconds() - LastFireTime >= FMath::Max(0.05f, FireCooldown);
+}
+
+void ACXPawn::Fire(const FInputActionValue& Value)
+{
+	if (IsLocallyControlled())
+	{
+		ServerFire();
+	}
+}
+
+void ACXPawn::ServerFire_Implementation()
+{
+	if (!CanFire())
+	{
+		return;
+	}
+	LastFireTime = GetWorld()->GetTimeSeconds();
+
+	const FVector TraceStart = AttackOrigin->GetComponentLocation();
+	const FVector TraceEnd = TraceStart +
+		AttackOrigin->GetForwardVector() * FMath::Max(1.0f, AttackRange);
+
+	FHitResult Hit;
+	FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(VehicleAttack), false, this);
+	const bool bHit = GetWorld()->LineTraceSingleByChannel(
+		Hit, TraceStart, TraceEnd, ECC_Visibility, QueryParams);
+
+	bool bStoleCoins = false;
+	if (ACXPawn* Victim = Cast<ACXPawn>(Hit.GetActor()))
+	{
+		if (Victim != this)
+		{
+			bStoleCoins = UGameplayStatics::ApplyDamage(
+				Victim, 5.0f, GetController(), this, UDamageType::StaticClass()) > 0.0f;
+		}
+	}
+
+	MulticastPlayAttackEffects(TraceStart, bHit ? Hit.ImpactPoint : TraceEnd, bStoleCoins);
+}
+
+float ACXPawn::TakeDamage(float DamageAmount, const FDamageEvent& DamageEvent,
+	AController* EventInstigator, AActor* DamageCauser)
+{
+	if (!HasAuthority() || !CanBeDamaged() || DamageAmount <= 0.0f)
+	{
+		return 0.0f;
+	}
+
+	ACXPawn* Attacker = Cast<ACXPawn>(DamageCauser);
+	if (!Attacker || Attacker == this || !EventInstigator ||
+		EventInstigator != Attacker->GetController())
+	{
+		return 0.0f;
+	}
+
+	ACXPlayerState* VictimState = GetPlayerState<ACXPlayerState>();
+	ACXPlayerState* AttackerState = Attacker->GetPlayerState<ACXPlayerState>();
+	if (!VictimState || !AttackerState || VictimState == AttackerState ||
+		VictimState->GetCoins() < 5 || AttackerState->GetCoins() > MAX_int32 - 5)
+	{
+		return 0.0f;
+	}
+
+	if (Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser) <= 0.0f)
+	{
+		return 0.0f;
+	}
+
+	if (!VictimState->TrySpendCoins(5))
+	{
+		return 0.0f;
+	}
+	if (!AttackerState->AddCoins(5))
+	{
+		// The existing setters are synchronous; refund if crediting was rejected.
+		VictimState->AddCoins(5);
+		return 0.0f;
+	}
+
+	return 5.0f;
+}
+
+void ACXPawn::MulticastPlayAttackEffects_Implementation(
+	FVector TraceStart, FVector TraceEnd, bool bStoleCoins)
+{
+	if (GetNetMode() == NM_DedicatedServer)
+	{
+		return;
+	}
+
+	DrawDebugLine(GetWorld(), TraceStart, TraceEnd,
+		bStoleCoins ? FColor::Green : FColor::Red, false, 1.0f, 0, 2.0f);
+
+	if (bStoleCoins && AttackHitNiagara)
+	{
+		UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+			GetWorld(), AttackHitNiagara, TraceEnd, FRotator::ZeroRotator);
+	}
+}
+
 #undef LOCTEXT_NAMESPACE
+

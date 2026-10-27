@@ -11,6 +11,8 @@ class USpringArmComponent;
 class UInputAction;
 class UChaosWheeledVehicleMovementComponent;
 struct FInputActionValue;
+class UArrowComponent;
+class UNiagaraSystem;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateVehicle, Log, All);
 
@@ -88,6 +90,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Vehicle|Speed")
 	float GetEffectiveMaxSpeedKmh() const;
 
+	virtual float TakeDamage(float DamageAmount, const FDamageEvent& DamageEvent,
+		AController* EventInstigator, AActor* DamageCauser) override;
+
 	// Begin Pawn interface
 
 	virtual void SetupPlayerInputComponent(UInputComponent* InputComponent) override;
@@ -101,6 +106,32 @@ public:
 	// End Actor interface
 
 protected:
+
+		UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+	TObjectPtr<UInputAction> FireAction;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Vehicle|Attack")
+	TObjectPtr<UArrowComponent> AttackOrigin;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Vehicle|Attack", meta = (ClampMin = "1.0"))
+	float AttackRange = 1000.0f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Vehicle|Attack", meta = (ClampMin = "0.05"))
+	float FireCooldown = 0.3f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Vehicle|Attack")
+	TObjectPtr<UNiagaraSystem> AttackHitNiagara;
+
+	double LastFireTime = -1.0;
+
+	bool CanFire() const;
+	void Fire(const FInputActionValue& Value);
+
+	UFUNCTION(Server, Reliable)
+	void ServerFire();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastPlayAttackEffects(FVector TraceStart, FVector TraceEnd, bool bStoleCoins);
 
 	void LimitMaxSpeed();
 
@@ -146,4 +177,5 @@ public:
 	/** Returns the cast Chaos Vehicle Movement subobject */
 	FORCEINLINE const TObjectPtr<UChaosWheeledVehicleMovementComponent>& GetChaosVehicleMovement() const { return ChaosVehicleMovement; }
 };
+
 
