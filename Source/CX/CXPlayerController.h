@@ -9,6 +9,7 @@
 class UInputMappingContext;
 class ACXPawn;
 class UCXUI;
+class UCXChatWidget;
 
 /**
  *  Vehicle Player Controller class
@@ -46,6 +47,20 @@ protected:
 	/** Pointer to the UI widget */
 	TObjectPtr<UCXUI> VehicleUI;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Chat")
+	TSubclassOf<UCXChatWidget> ChatWidgetClass;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UCXChatWidget> ChatWidget;
+
+	UFUNCTION(Server, Reliable)
+	void ServerSendChatMessage(const FString& Message);
+
+	UFUNCTION(Client, Reliable)
+	void ClientReceiveChatMessage(const FString& Message);
+
+	float LastChatMessageTime = -1.0f;
+
 	
 
 	// Begin Actor interface
@@ -59,6 +74,10 @@ public:
 
 	virtual void Tick(float Delta) override;
 
+	void OpenChat();
+	void CloseChat();
+	void SubmitChatMessage(const FString& Message);
+
 	// End Actor interface
 
 	// Begin PlayerController interface
@@ -68,3 +87,4 @@ protected:
 
 	// End PlayerController interface
 };
+
