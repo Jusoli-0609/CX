@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "CXPawn.h"
+#include "CXPlayerState.h"
 #include "CXWheelFront.h"
 #include "CXWheelRear.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -95,6 +96,8 @@ void ACXPawn::SetupPlayerInputComponent(class UInputComponent* PlayerInputCompon
 void ACXPawn::Tick(float Delta)
 {
 	Super::Tick(Delta);
+
+	LimitMaxSpeed();
 
 	// add some angular damping if the vehicle is in midair
 	bool bMovingOnGround = ChaosVehicleMovement->IsMovingOnGround();
@@ -202,6 +205,36 @@ void ACXPawn::ResetVehicle(const FInputActionValue& Value)
 	GetMesh()->SetPhysicsLinearVelocity(FVector::ZeroVector);
 
 	UE_LOG(LogTemplateVehicle, Error, TEXT("Reset Vehicle"));
+}
+
+float ACXPawn::GetEffectiveMaxSpeedKmh() const
+{
+	const ACXPlayerState* State = GetPlayerState<ACXPlayerState>();
+	const float Bonus = State ? State->GetBonusMaxSpeed() : 0.0f;
+	return FMath::Max(1.0f, BaseMaxSpeedKmh + Bonus);
+}
+
+void ACXPawn::LimitMaxSpeed()
+{
+	// The authority enforces the cap; the owning client also predicts it locally.
+	// Simulated proxies do not have owner-only bonus data and must not clamp it.
+	if ((!HasAuthority() && !IsLocallyControlled()) || !GetMesh() || !GetMesh()->IsSimulatingPhysics())
+	{
+		return;
+	}
+
+	const float MaxSpeedCmPerSecond = GetEffectiveMaxSpeedKmh() / 0.036f;
+	const FVector Velocity = GetMesh()->GetPhysicsLinearVelocity();
+	const double HorizontalSpeedSquared = Velocity.SizeSquared2D();
+	const double MaxSpeedSquared = FMath::Square(static_cast<double>(MaxSpeedCmPerSecond));
+	if (HorizontalSpeedSquared <= MaxSpeedSquared)
+	{
+		return;
+	}
+
+	const double Scale = MaxSpeedCmPerSecond / FMath::Sqrt(HorizontalSpeedSquared);
+	const FVector LimitedVelocity(Velocity.X * Scale, Velocity.Y * Scale, Velocity.Z);
+	GetMesh()->SetPhysicsLinearVelocity(LimitedVelocity, false);
 }
 
 #undef LOCTEXT_NAMESPACE

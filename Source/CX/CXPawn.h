@@ -75,11 +75,18 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	UInputAction* ResetVehicleAction;
 
+	/** Base speed cap in km/h; the server-owned PlayerState adds its bonus. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Vehicle|Speed", meta = (ClampMin = "1.0"))
+	float BaseMaxSpeedKmh = 120.0f;
+
 	/** Keeps track of which camera is active */
 	bool bFrontCameraActive = false;
 
 public:
 	ACXPawn();
+
+	UFUNCTION(BlueprintPure, Category = "Vehicle|Speed")
+	float GetEffectiveMaxSpeedKmh() const;
 
 	// Begin Pawn interface
 
@@ -94,6 +101,8 @@ public:
 	// End Actor interface
 
 protected:
+
+	void LimitMaxSpeed();
 
 	/** Handles steering input */
 	void Steering(const FInputActionValue& Value);
@@ -137,3 +146,4 @@ public:
 	/** Returns the cast Chaos Vehicle Movement subobject */
 	FORCEINLINE const TObjectPtr<UChaosWheeledVehicleMovementComponent>& GetChaosVehicleMovement() const { return ChaosVehicleMovement; }
 };
+
