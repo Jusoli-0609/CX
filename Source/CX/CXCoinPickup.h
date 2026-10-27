@@ -6,7 +6,7 @@
 
 class USphereComponent;
 class UStaticMeshComponent;
-class UParticleSystem;
+class UNiagaraSystem;
 class USoundBase;
 class UPrimitiveComponent;
 
@@ -26,7 +26,7 @@ protected:
 	TObjectPtr<UStaticMeshComponent> CoinMesh;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Coin|Effects")
-	TObjectPtr<UParticleSystem> PickupParticle;
+	TObjectPtr<UNiagaraSystem> PickupNiagara;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Coin|Effects")
 	TObjectPtr<USoundBase> PickupSound;
@@ -42,4 +42,5 @@ private:
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastPlayPickupEffects(FVector Location);
 };
+
 

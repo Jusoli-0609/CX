@@ -5,7 +5,8 @@
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Kismet/GameplayStatics.h"
-#include "Particles/ParticleSystem.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraSystem.h"
 #include "Sound/SoundBase.h"
 #include "UObject/ConstructorHelpers.h"
 
@@ -84,10 +85,10 @@ void ACXCoinPickup::MulticastPlayPickupEffects_Implementation(FVector Location)
 		return;
 	}
 
-	if (PickupParticle)
+	if (PickupNiagara)
 	{
-		UGameplayStatics::SpawnEmitterAtLocation(
-			GetWorld(), PickupParticle, Location, FRotator::ZeroRotator);
+		UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+			GetWorld(), PickupNiagara, Location, FRotator::ZeroRotator);
 	}
 
 	if (PickupSound)
@@ -95,4 +96,5 @@ void ACXCoinPickup::MulticastPlayPickupEffects_Implementation(FVector Location)
 		UGameplayStatics::PlaySoundAtLocation(this, PickupSound, Location);
 	}
 }
+
 
