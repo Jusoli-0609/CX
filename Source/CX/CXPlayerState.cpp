@@ -1,5 +1,7 @@
 #include "CXPlayerState.h"
 #include "Net/UnrealNetwork.h"
+#include "CXGameState.h"
+#include "Engine/World.h"
 
 ACXPlayerState::ACXPlayerState()
 {
@@ -16,7 +18,7 @@ void ACXPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 
 bool ACXPlayerState::AddCoins(int32 Amount)
 {
-	if (!HasAuthority() || Amount <= 0 || Coins > MAX_int32 - Amount)
+	if (!CanChangeStats() || Amount <= 0 || Coins > MAX_int32 - Amount)
 	{
 		return false;
 	}
@@ -28,7 +30,7 @@ bool ACXPlayerState::AddCoins(int32 Amount)
 
 bool ACXPlayerState::TrySpendCoins(int32 Amount)
 {
-	if (!HasAuthority() || Amount <= 0 || Coins < Amount)
+	if (!CanChangeStats() || Amount <= 0 || Coins < Amount)
 	{
 		return false;
 	}
@@ -40,7 +42,7 @@ bool ACXPlayerState::TrySpendCoins(int32 Amount)
 
 bool ACXPlayerState::AddBonusMaxSpeed(float Amount)
 {
-	if (!HasAuthority() || !FMath::IsFinite(Amount) || Amount <= 0.0f)
+	if (!CanChangeStats() || !FMath::IsFinite(Amount) || Amount <= 0.0f)
 	{
 		return false;
 	}
@@ -62,5 +64,18 @@ FText ACXPlayerState::GetStatsText() const
 		NSLOCTEXT("CX", "PlayerStatsSummary", "코인: {0}\n추가 최대 속도: +{1}"),
 		FText::AsNumber(Coins),
 		FText::AsNumber(BonusMaxSpeed));
+}
+
+
+
+bool ACXPlayerState::CanChangeStats() const
+{
+	if (!HasAuthority() || !GetWorld())
+	{
+		return false;
+	}
+
+	const ACXGameState* State = GetWorld()->GetGameState<ACXGameState>();
+	return State && State->IsPlaying();
 }
 

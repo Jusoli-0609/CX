@@ -138,6 +138,7 @@ void ACXGameMode::FinishMatch()
 	if (ACXGameState* State = Cast<ACXGameState>(GameState))
 	{
 		State->SetMatchStatus(ECXGamePhase::Finished, 0);
+		State->FinalizeResults();
 	}
 }
 
@@ -149,4 +150,5 @@ void ACXGameMode::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	}
 	Super::EndPlay(EndPlayReason);
 }
+
 

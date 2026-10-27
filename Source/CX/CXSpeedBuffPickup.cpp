@@ -1,6 +1,7 @@
 #include "CXSpeedBuffPickup.h"
 #include "CXPawn.h"
 #include "CXPlayerState.h"
+#include "Engine/World.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
@@ -98,4 +99,49 @@ void ACXSpeedBuffPickup::MulticastPlayPickupEffects_Implementation(FVector Locat
 }
 
 
+
+
+
+void ACXSpeedBuffPickup::BeginPlay()
+{
+	Super::BeginPlay();
+
+	if (!HasAuthority())
+	{
+		PickupSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		return;
+	}
+
+	MatchGameState = GetWorld() ? GetWorld()->GetGameState<ACXGameState>() : nullptr;
+	if (!MatchGameState)
+	{
+		PickupSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		UE_LOG(LogTemp, Warning, TEXT("%s: CXGameState is required for pickup collection."), *GetName());
+		return;
+	}
+
+	MatchGameState->OnGamePhaseChanged.AddUniqueDynamic(this, &ACXSpeedBuffPickup::HandleGamePhaseChanged);
+	HandleGamePhaseChanged(MatchGameState->GetGamePhase());
+}
+
+void ACXSpeedBuffPickup::HandleGamePhaseChanged(ECXGamePhase NewPhase)
+{
+	if (!HasAuthority() || bCollected)
+	{
+		return;
+	}
+
+	PickupSphere->SetCollisionEnabled(NewPhase == ECXGamePhase::Playing
+		? ECollisionEnabled::QueryOnly : ECollisionEnabled::NoCollision);
+}
+
+void ACXSpeedBuffPickup::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (IsValid(MatchGameState))
+	{
+		MatchGameState->OnGamePhaseChanged.RemoveDynamic(this, &ACXSpeedBuffPickup::HandleGamePhaseChanged);
+	}
+	MatchGameState = nullptr;
+	Super::EndPlay(EndPlayReason);
+}
 

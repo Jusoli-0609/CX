@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "CXGameState.h"
 #include "CXSpeedBuffPickup.generated.h"
 
 class USphereComponent;
@@ -19,6 +20,9 @@ public:
 	ACXSpeedBuffPickup();
 
 protected:
+	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Speed Buff")
 	TObjectPtr<USphereComponent> PickupSphere;
 
@@ -32,6 +36,12 @@ protected:
 	TObjectPtr<USoundBase> PickupSound;
 
 private:
+	UPROPERTY(Transient)
+	TObjectPtr<ACXGameState> MatchGameState;
+
+	UFUNCTION()
+	void HandleGamePhaseChanged(ECXGamePhase NewPhase);
+
 	bool bCollected = false;
 
 	UFUNCTION()
@@ -42,6 +52,7 @@ private:
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastPlayPickupEffects(FVector Location);
 };
+
 
 
 

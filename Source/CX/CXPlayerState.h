@@ -34,6 +34,8 @@ public:
 	bool AddBonusMaxSpeed(float Amount);
 
 private:
+	bool CanChangeStats() const;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Replicated, Category = "Player Stats",
 		meta = (AllowPrivateAccess = "true"))
 	int32 Coins = 0;
@@ -42,4 +44,5 @@ private:
 		meta = (AllowPrivateAccess = "true"))
 	float BonusMaxSpeed = 0.0f;
 };
+
 

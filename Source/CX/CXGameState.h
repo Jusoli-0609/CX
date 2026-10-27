@@ -4,6 +4,8 @@
 #include "GameFramework/GameStateBase.h"
 #include "CXGameState.generated.h"
 
+class APlayerController;
+
 UENUM(BlueprintType)
 enum class ECXGamePhase : uint8
 {
@@ -11,6 +13,8 @@ enum class ECXGamePhase : uint8
 	Playing,
 	Finished
 };
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FCXGamePhaseChanged, ECXGamePhase, NewPhase);
 
 USTRUCT(BlueprintType)
 struct FCXMatchStatus
@@ -22,6 +26,33 @@ struct FCXMatchStatus
 
 	UPROPERTY(BlueprintReadOnly)
 	int32 RemainingSeconds = 0;
+};
+
+USTRUCT(BlueprintType)
+struct FCXWinnerInfo
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly)
+	int32 PlayerId = -1;
+
+	UPROPERTY(BlueprintReadOnly)
+	FString PlayerName;
+};
+
+USTRUCT(BlueprintType)
+struct FCXMatchResult
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly)
+	bool bReady = false;
+
+	UPROPERTY(BlueprintReadOnly)
+	int32 WinningCoins = 0;
+
+	UPROPERTY(BlueprintReadOnly)
+	TArray<FCXWinnerInfo> Winners;
 };
 
 UCLASS()
@@ -45,11 +76,26 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Match")
 	FText GetMatchStatusText() const;
 
-	// Called by the authoritative GameMode; never changes client state directly.
+	UFUNCTION(BlueprintPure, Category = "Match")
+	FText GetMatchResultText(APlayerController* Viewer) const;
+
+	UFUNCTION(BlueprintPure, Category = "Match")
+	TArray<FCXWinnerInfo> GetWinners() const { return MatchResult.Winners; }
+
+	UPROPERTY(BlueprintAssignable, Category = "Match")
+	FCXGamePhaseChanged OnGamePhaseChanged;
+
 	void SetMatchStatus(ECXGamePhase NewPhase, int32 Seconds);
+	void FinalizeResults();
 
 private:
-	UPROPERTY(Replicated)
+	UPROPERTY(ReplicatedUsing = OnRep_MatchStatus)
 	FCXMatchStatus MatchStatus;
+
+	UPROPERTY(Replicated)
+	FCXMatchResult MatchResult;
+
+	UFUNCTION()
+	void OnRep_MatchStatus();
 };
 

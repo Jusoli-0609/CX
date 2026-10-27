@@ -2,6 +2,7 @@
 
 #include "CXPawn.h"
 #include "CXPlayerState.h"
+#include "CXGameState.h"
 #include "Components/ArrowComponent.h"
 #include "Engine/World.h"
 #include "Engine/DamageEvents.h"
@@ -271,6 +272,13 @@ bool ACXPawn::CanFire() const
 		return false;
 	}
 
+	const ACXGameState* MatchState = GetWorld()->GetGameState<ACXGameState>();
+	if (!MatchState || !MatchState->IsPlaying())
+	{
+		return false;
+	}
+
+
 	return LastFireTime < 0.0 ||
 		GetWorld()->GetTimeSeconds() - LastFireTime >= FMath::Max(0.05f, FireCooldown);
 }
@@ -320,6 +328,13 @@ float ACXPawn::TakeDamage(float DamageAmount, const FDamageEvent& DamageEvent,
 	{
 		return 0.0f;
 	}
+
+	const ACXGameState* MatchState = GetWorld() ? GetWorld()->GetGameState<ACXGameState>() : nullptr;
+	if (!MatchState || !MatchState->IsPlaying())
+	{
+		return 0.0f;
+	}
+
 
 	ACXPawn* Attacker = Cast<ACXPawn>(DamageCauser);
 	if (!Attacker || Attacker == this || !EventInstigator ||
@@ -379,5 +394,6 @@ void ACXPawn::MulticastPlayAttackEffects_Implementation(
 }
 
 #undef LOCTEXT_NAMESPACE
+
 
 
