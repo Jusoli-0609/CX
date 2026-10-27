@@ -10,6 +10,7 @@
 #include "DrawDebugHelpers.h"
 #include "NiagaraFunctionLibrary.h"
 #include "NiagaraSystem.h"
+#include "Sound/SoundBase.h"
 #include "CXWheelFront.h"
 #include "CXWheelRear.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -362,6 +363,11 @@ void ACXPawn::MulticastPlayAttackEffects_Implementation(
 		return;
 	}
 
+	if (FireSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, FireSound, TraceStart);
+	}
+
 	DrawDebugLine(GetWorld(), TraceStart, TraceEnd,
 		bStoleCoins ? FColor::Green : FColor::Red, false, 1.0f, 0, 2.0f);
 
@@ -373,4 +379,5 @@ void ACXPawn::MulticastPlayAttackEffects_Implementation(
 }
 
 #undef LOCTEXT_NAMESPACE
+
 

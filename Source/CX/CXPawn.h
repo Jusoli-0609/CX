@@ -13,6 +13,7 @@ class UChaosWheeledVehicleMovementComponent;
 struct FInputActionValue;
 class UArrowComponent;
 class UNiagaraSystem;
+class USoundBase;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateVehicle, Log, All);
 
@@ -122,6 +123,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Vehicle|Attack")
 	TObjectPtr<UNiagaraSystem> AttackHitNiagara;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Vehicle|Attack")
+	TObjectPtr<USoundBase> FireSound;
+
 	double LastFireTime = -1.0;
 
 	bool CanFire() const;
@@ -177,5 +181,6 @@ public:
 	/** Returns the cast Chaos Vehicle Movement subobject */
 	FORCEINLINE const TObjectPtr<UChaosWheeledVehicleMovementComponent>& GetChaosVehicleMovement() const { return ChaosVehicleMovement; }
 };
+
 
 
